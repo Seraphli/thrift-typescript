@@ -124,7 +124,7 @@ export interface IRenderState {
     project: IThriftProject
 }
 
-export type CompileTarget = 'apache' | 'thrift-server'
+export type CompileTarget = 'apache' | 'thrift-server' | 'apachem'
 
 export interface IMakeOptions {
     // Root to resolve outDir and sourceDir from

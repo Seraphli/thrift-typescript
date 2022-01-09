@@ -19,3 +19,5 @@ coverage/
 # Thrift test artifacts
 src/tests/integration/apache/codegen
 src/tests/integration/thrift-server/codegen
+
+.history
