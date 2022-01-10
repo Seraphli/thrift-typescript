@@ -52,7 +52,11 @@ export function resolveOptions(args: Array<string>): IMakeOptions {
 
             case '--target':
                 const option = args[index + 1]
-                if (option === 'apache' || option === 'thrift-server') {
+                if (
+                    option === 'apache' ||
+                    option === 'thrift-server' ||
+                    option === 'apachem'
+                ) {
                     options.target = option
                 } else {
                     throw new Error(`Unsupported target: ${option}`)

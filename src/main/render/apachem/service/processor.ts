@@ -37,6 +37,7 @@ import {
 import {
     COMMON_IDENTIFIERS,
     MESSAGE_TYPE,
+    MOD_IDENTIFIERS,
     THRIFT_IDENTIFIERS,
     THRIFT_TYPES,
 } from '../identifiers'
@@ -65,6 +66,10 @@ function funcToMethodReducer(
                         field.requiredness === 'optional',
                     )
                 }),
+                createFunctionParameter(
+                    MOD_IDENTIFIERS.stream,
+                    ts.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+                ),
             ],
             ts.createUnionTypeNode([
                 typeNodeForFieldType(func.returnType, state),
@@ -329,6 +334,10 @@ function createProcessFunctionMethod(
             ),
             createFunctionParameter(COMMON_IDENTIFIERS.input, TProtocolType),
             createFunctionParameter(COMMON_IDENTIFIERS.output, TProtocolType),
+            createFunctionParameter(
+                MOD_IDENTIFIERS.stream,
+                ts.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+            ),
         ], // parameters
         createVoidType(), // return type
         [
@@ -365,15 +374,18 @@ function createProcessFunctionMethod(
                                                             COMMON_IDENTIFIERS._handler,
                                                         ),
                                                         funcDef.name.value,
-                                                        funcDef.fields.map(
-                                                            (
-                                                                next: FieldDefinition,
-                                                            ) => {
-                                                                return ts.createIdentifier(
-                                                                    `args.${next.name.value}`,
-                                                                )
-                                                            },
-                                                        ),
+                                                        [
+                                                            ...funcDef.fields.map(
+                                                                (
+                                                                    next: FieldDefinition,
+                                                                ) => {
+                                                                    return ts.createIdentifier(
+                                                                        `args.${next.name.value}`,
+                                                                    )
+                                                                },
+                                                            ),
+                                                            MOD_IDENTIFIERS.stream,
+                                                        ],
                                                     ),
                                                 ],
                                             ),
@@ -773,6 +785,10 @@ function createProcessMethod(
         [
             createFunctionParameter(COMMON_IDENTIFIERS.input, TProtocolType),
             createFunctionParameter(COMMON_IDENTIFIERS.output, TProtocolType),
+            createFunctionParameter(
+                MOD_IDENTIFIERS.stream,
+                ts.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+            ),
         ], // parameters
         createVoidType(), // return type
         [
@@ -831,6 +847,7 @@ function createMethodCallForFunction(func: FunctionDefinition): ts.CaseClause {
                             COMMON_IDENTIFIERS.requestId,
                             COMMON_IDENTIFIERS.input,
                             COMMON_IDENTIFIERS.output,
+                            MOD_IDENTIFIERS.stream,
                         ],
                     ),
                 ),
