@@ -2,10 +2,133 @@
 
 Generate TypeScript from Thrift IDL files.
 
+A modify version of @creditkarma/thrift-typescript.
+
+Use `--target apachem` to generate Apache Thrift compatible code with context support.
+
+With a modify version of `createServer`.
+
+```typescript
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+import type { ServerOptions, TProcessorConstructor, TTransport } from 'thrift';
+import { TBufferedTransport, TBinaryProtocol } from 'thrift';
+import * as tls from 'tls';
+import * as net from 'net';
+import * as constants from 'constants';
+
+const {
+  THeaderProtocol,
+} = require('thrift/lib/nodejs/lib/thrift/header_protocol.js');
+const InputBufferUnderrunError = require('thrift/lib/nodejs/lib/thrift/input_buffer_underrun_error.js');
+
+export function createMultiplexServer<TProcessor, THandler>(
+  processor: TProcessor,
+  options?: ServerOptions<TProcessor, THandler>,
+) {
+  const transport =
+    options && options.transport ? options.transport : TBufferedTransport;
+  const protocol =
+    options && options.protocol ? options.protocol : TBinaryProtocol;
+
+  function serverImpl(this: any, stream: net.Socket) {
+    const self = this as any;
+    stream.on('error', function (err) {
+      self.emit('error', err);
+    });
+    stream.on(
+      'data',
+      // @ts-ignore
+      transport.receiver(function (transportWithData: TTransport) {
+        const input = new protocol(transportWithData);
+        const outputCb = function (buf?: Buffer) {
+          try {
+            if (buf) {
+              stream.write(buf);
+            }
+          } catch (err) {
+            self.emit('error', err);
+            stream.end();
+          }
+        };
+
+        let output = new protocol(new transport(undefined, outputCb));
+        // Read and write need to be performed on the same transport
+        // for THeaderProtocol because we should only respond with
+        // headers if the request contains headers
+        if (protocol === THeaderProtocol) {
+          output = input;
+          // @ts-ignore
+          output.trans.onFlush = outputCb;
+        }
+
+        try {
+          do {
+            // @ts-ignore
+            processor.process(input, output, stream);
+            transportWithData.commitPosition();
+            // eslint-disable-next-line no-constant-condition
+          } while (true);
+        } catch (err) {
+          if (err instanceof InputBufferUnderrunError) {
+            //The last data in the buffer was not a complete message, wait for the rest
+            transportWithData.rollbackPosition();
+          } else if ((err as Error).message === 'Invalid type: undefined') {
+            //No more data in the buffer
+            //This trap is a bit hackish
+            //The next step to improve the node behavior here is to have
+            //  the compiler generated process method throw a more explicit
+            //  error when the network buffer is empty (regardles of the
+            //  protocol/transport stack in use) and replace this heuristic.
+            //  Also transports should probably not force upper layers to
+            //  manage their buffer positions (i.e. rollbackPosition() and
+            //  commitPosition() should be eliminated in lieu of a transport
+            //  encapsulated buffer management strategy.)
+            transportWithData.rollbackPosition();
+          } else {
+            //Unexpected error
+            self.emit('error', err);
+            stream.end();
+          }
+        }
+      }),
+    );
+
+    stream.on('end', function () {
+      stream.end();
+    });
+  }
+
+  if (options && options.tls) {
+    if (
+      !('secureProtocol' in options.tls) &&
+      !('secureOptions' in options.tls)
+    ) {
+      options.tls.secureProtocol = 'SSLv23_method';
+      options.tls.secureOptions =
+        constants.SSL_OP_NO_SSLv2 | constants.SSL_OP_NO_SSLv3;
+    }
+    return tls.createServer(options.tls, serverImpl);
+  } else {
+    return net.createServer(serverImpl);
+  }
+}
+
+export function createServer<TProcessor, THandler>(
+  processor: TProcessorConstructor<TProcessor, THandler>,
+  handler: THandler,
+  options?: ServerOptions<TProcessor, THandler>,
+): net.Server | tls.Server {
+  const pc = 'Processor' in processor ? processor.Processor : processor;
+  return createMultiplexServer(new pc(handler), options);
+}
+
+```
+
 ## Installation
 
 ```sh
-$ npm install --save @creditkarma/thrift-typescript
+$ npm install --save @seraphli/thrift-typescript
 ```
 
 ## Usage
